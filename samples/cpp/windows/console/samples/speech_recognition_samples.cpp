@@ -7,48 +7,51 @@
 
 // <toplevel>
 #include <speechapi_cxx.h>
+#include <fstream>
+#include "wav_file_reader.h"
 
 using namespace std;
 using namespace Microsoft::CognitiveServices::Speech;
+using namespace Microsoft::CognitiveServices::Speech::Audio;
 // </toplevel>
 
 // Speech recognition using microphone.
 void SpeechRecognitionWithMicrophone()
 {
     // <SpeechRecognitionWithMicrophone>
-    // Creates an instance of a speech factory with specified subscription key and service region.
+    // Creates an instance of a speech config with specified subscription key and service region.
     // Replace with your own subscription key and service region (e.g., "westus").
-    auto factory = SpeechFactory::FromSubscription(L"YourSubscriptionKey", L"YourServiceRegion");
+    auto config = SpeechConfig::FromSubscription("YourSubscriptionKey", "YourServiceRegion");
 
     // Creates a speech recognizer using microphone as audio input. The default language is "en-us".
-    auto recognizer = factory->CreateSpeechRecognizer();
-    wcout << L"Say something...\n";
+    auto recognizer = SpeechRecognizer::FromConfig(config);
+    cout << "Say something...\n";
 
-    // Performs recognition.
-    // RecognizeAsync() returns when the first utterance has been recognized, so it is suitable 
-    // only for single shot recognition like command or query. For long-running recognition, use
-    // StartContinuousRecognitionAsync() instead.
-    auto result = recognizer->RecognizeAsync().get();
+    // Performs recognition. RecognizeOnceAsync() returns when the first utterance has been recognized,
+    // so it is suitable only for single shot recognition like command or query. For long-running
+    // recognition, use StartContinuousRecognitionAsync() instead.
+    auto result = recognizer->RecognizeOnceAsync().get();
 
     // Checks result.
-    if (result->Reason != Reason::Recognized)
+    if (result->Reason == ResultReason::RecognizedSpeech)
     {
-        wcout << L"Recognition Status: " << int(result->Reason) << L". ";
-        if (result->Reason == Reason::Canceled)
-        {
-            wcout << L"There was an error, reason: " << result->ErrorDetails << std::endl;
-        }
-        else
-        {
-            wcout << L"No speech could be recognized.\n";
-        }
+        cout << "RECOGNIZED: Text=" << result->Text << std::endl;
     }
-    else
+    else if (result->Reason == ResultReason::NoMatch)
     {
-        wcout << L"We recognized: " << result->Text
-              << L", starting at " << result->Offset() << L"(ticks)"
-              << L", with duration of " << result->Duration() << L"(ticks)"
-              << std::endl;
+        cout << "NOMATCH: Speech could not be recognized." << std::endl;
+    }
+    else if (result->Reason == ResultReason::Canceled)
+    {
+        auto cancellation = CancellationDetails::FromResult(result);
+        cout << "CANCELED: Reason=" << (int)cancellation->Reason << std::endl;
+
+        if (cancellation->Reason == CancellationReason::Error)
+        {
+            cout << "CANCELED: ErrorCode=" << (int)cancellation->ErrorCode << std::endl;
+            cout << "CANCELED: ErrorDetails=" << cancellation->ErrorDetails << std::endl;
+            cout << "CANCELED: Did you update the subscription info?" << std::endl;
+        }
     }
     // </SpeechRecognitionWithMicrophone>
 }
@@ -57,107 +60,103 @@ void SpeechRecognitionWithMicrophone()
 // Speech recognition in the specified language, using microphone, and requesting detailed output format.
 void SpeechRecognitionWithLanguageAndUsingDetailedOutputFormat()
 {
-    // <SpeechRecognitionWithLanguageAndUsingDetailedOutputFormat>
-    // Creates an instance of a speech factory with specified subscription key and service region.
+    // Creates an instance of a speech config with specified subscription key and service region.
     // Replace with your own subscription key and service region (e.g., "westus").
-    auto factory = SpeechFactory::FromSubscription(L"YourSubscriptionKey", L"YourServiceRegion");
+    auto config = SpeechConfig::FromSubscription("YourSubscriptionKey", "YourServiceRegion");
 
     // Creates a speech recognizer in the specified language using microphone as audio input.
     // Replace the language with your language in BCP-47 format, e.g. en-US.
-    auto lang = L"de-DE";
-    // Requests detailed output format.
-    auto recognizer = factory->CreateSpeechRecognizer(lang, OutputFormat::Detailed);
-    wcout << L"Say something in " << lang << L"...\n";
+    auto lang = "de-DE";
+    config->SetSpeechRecognitionLanguage(lang);
+    // Request detailed output format.
+    config->SetOutputFormat(OutputFormat::Detailed);
 
-    // Performs recognition.
-    // RecognizeAsync() returns when the first utterance has been recognized, so it is suitable 
-    // only for single shot recognition like command or query. For long-running recognition, use
-    // StartContinuousRecognitionAsync() instead.
-    auto result = recognizer->RecognizeAsync().get();
+    auto recognizer = SpeechRecognizer::FromConfig(config);
+    cout << "Say something in " << lang << "...\n";
+
+    // Performs recognition. RecognizeOnceAsync() returns when the first utterance has been recognized,
+    // so it is suitable only for single shot recognition like command or query. For long-running
+    // recognition, use StartContinuousRecognitionAsync() instead.
+    auto result = recognizer->RecognizeOnceAsync().get();
 
     // Checks result.
-    if (result->Reason != Reason::Recognized)
+    if (result->Reason == ResultReason::RecognizedSpeech)
     {
-        wcout << L"Recognition Status:" << int(result->Reason);
-        if (result->Reason == Reason::Canceled)
+        cout << "RECOGNIZED: Text=" << result->Text << std::endl
+             << "  Speech Service JSON: " << result->Properties.GetProperty(PropertyId::SpeechServiceResponse_JsonResult)
+             << std::endl;
+    }
+    else if (result->Reason == ResultReason::NoMatch)
+    {
+        cout << "NOMATCH: Speech could not be recognized." << std::endl;
+    }
+    else if (result->Reason == ResultReason::Canceled)
+    {
+        auto cancellation = CancellationDetails::FromResult(result);
+        cout << "CANCELED: Reason=" << (int)cancellation->Reason << std::endl;
+
+        if (cancellation->Reason == CancellationReason::Error)
         {
-            wcout << L"There was an error, reason: " << result->ErrorDetails << std::endl;
-        }
-        else
-        {
-            wcout << L"No speech could be recognized.\n";
+            cout << "CANCELED: ErrorCode=" << (int)cancellation->ErrorCode << std::endl;
+            cout << "CANCELED: ErrorDetails=" << cancellation->ErrorDetails << std::endl;
+            cout << "CANCELED: Did you update the subscription info?" << std::endl;
         }
     }
-    else
-    {
-        wcout << L"We recognized: " << result->Text << std::endl
-              << L"Detailed output result in JSON: " << result->Properties[ResultProperty::Json].GetString()
-              << std::endl;
-    }
-    // </SpeechRecognitionWithLanguageAndUsingDetailedOutputFormat>
 }
 
 void SpeechContinuousRecognitionWithFile()
 {
     // <SpeechContinuousRecognitionWithFile>
-    // Creates an instance of a speech factory with specified subscription key and service region.
+    // Creates an instance of a speech config with specified subscription key and service region.
     // Replace with your own subscription key and service region (e.g., "westus").
-    auto factory = SpeechFactory::FromSubscription(L"YourSubscriptionKey", L"YourServiceRegion");
+    auto config = SpeechConfig::FromSubscription("YourSubscriptionKey", "YourServiceRegion");
 
     // Creates a speech recognizer using file as audio input.
     // Replace with your own audio file name.
-    auto recognizer = factory->CreateSpeechRecognizerWithFileInput(L"whatstheweatherlike.wav");
+    auto audioInput = AudioConfig::FromWavFileInput("whatstheweatherlike.wav");
+    auto recognizer = SpeechRecognizer::FromConfig(config, audioInput);
 
     // promise for synchronization of recognition end.
-    std::promise<void> recognitionEnd;
+    promise<void> recognitionEnd;
 
     // Subscribes to events.
-    recognizer->IntermediateResult.Connect([] (const SpeechRecognitionEventArgs& e)
+    recognizer->Recognizing.Connect([] (const SpeechRecognitionEventArgs& e)
     {
-        wcout << L"IntermediateResult:" << e.Result.Text << std::endl;
+        cout << "Recognizing:" << e.Result->Text << endl;
     });
 
-    recognizer->FinalResult.Connect([] (const SpeechRecognitionEventArgs& e)
+    recognizer->Recognized.Connect([] (const SpeechRecognitionEventArgs& e)
     {
-        wcout << L"Recognition Status:" << int(e.Result.Reason) << std::endl;
-        switch (e.Result.Reason)
+        if (e.Result->Reason == ResultReason::RecognizedSpeech)
         {
-        case Reason::Recognized:
-            wcout << L"We recognized: " << e.Result.Text
-                << L". Offset: " << e.Result.Offset() << L". Duration: " << e.Result.Duration()
-                << std::endl;
-            break;
-        case Reason::InitialSilenceTimeout:
-            wcout << L"The start of the audio stream contains only silence, and the service timed out waiting for speech.\n";
-            break;
-        case Reason::InitialBabbleTimeout:
-            wcout << L"The start of the audio stream contains only noise, and the service timed out waiting for speech.\n";
-            break;
-        case Reason::NoMatch:
-            wcout << L"The speech was detected in the audio stream, but no words from the target language were matched."
-                << L"Possible reasons could be wrong setting of the target language or wrong format of audio stream.\n";
-            break;
-        case Reason::Canceled:
-            wcout << L"There was an error, reason: " << e.Result.ErrorDetails << std::endl;
-            break;
-        default:
-            wcout << L"Recognition Status:" << int(e.Result.Reason);
-            break;
+            cout << "RECOGNIZED: Text=" << e.Result->Text << std::endl
+                 << "  Offset=" << e.Result->Offset() << std::endl
+                 << "  Duration=" << e.Result->Duration() << std::endl;
+        }
+        else if (e.Result->Reason == ResultReason::NoMatch)
+        {
+            cout << "NOMATCH: Speech could not be recognized." << std::endl;
         }
     });
 
-    recognizer->Canceled.Connect( [&recognitionEnd] (const SpeechRecognitionEventArgs& e)
+    recognizer->Canceled.Connect([&recognitionEnd](const SpeechRecognitionCanceledEventArgs& e)
     {
-        wcout << L"Canceled:" << (int)e.Result.Reason << L"- " << e.Result.ErrorDetails << std::endl;
-        // Notify to stop recognition.
-        recognitionEnd.set_value();
+        cout << "CANCELED: Reason=" << (int)e.Reason << std::endl;
+
+        if (e.Reason == CancellationReason::Error)
+        {
+            cout << "CANCELED: ErrorCode=" << (int)e.ErrorCode << std::endl;
+            cout << "CANCELED: ErrorDetails=" << e.ErrorDetails << std::endl;
+            cout << "CANCELED: Did you update the subscription info?" << std::endl;
+        }
+
+        recognitionEnd.set_value(); // Notify to stop recognition.
     });
 
-    recognizer->SessionStopped.Connect( [&recognitionEnd] (const SessionEventArgs& e)
+    recognizer->SessionStopped.Connect([&recognitionEnd](const SessionEventArgs& e)
     {
-        wcout << L"Session stopped.";
-        // Notify to stop recognition.
-        recognitionEnd.set_value();
+        cout << "Session stopped.";
+        recognitionEnd.set_value(); // Notify to stop recognition.
     });
 
     // Starts continuous recognition. Uses StopContinuousRecognitionAsync() to stop recognition.
@@ -171,41 +170,241 @@ void SpeechContinuousRecognitionWithFile()
     // </SpeechContinuousRecognitionWithFile>
 }
 
-
 // Speech recognition using a customized model.
 void SpeechRecognitionUsingCustomizedModel()
 {
     // <SpeechRecognitionUsingCustomizedModel>
-    // Creates an instance of a speech factory with specified subscription key and service region.
+    // Creates an instance of a speech config with specified subscription key and service region.
     // Replace with your own subscription key and service region (e.g., "westus").
-    auto factory = SpeechFactory::FromSubscription(L"YourSubscriptionKey", L"YourServiceRegion");
+    auto config = SpeechConfig::FromSubscription("YourSubscriptionKey", "YourServiceRegion");
+    // Set the endpoint ID of your customized model
+    // Replace with your own CRIS endpoint ID.
+    config->SetEndpointId("YourEndpointId");
 
     // Creates a speech recognizer using microphone as audio input.
-    auto recognizer = factory->CreateSpeechRecognizer();
+    auto recognizer = SpeechRecognizer::FromConfig(config);
 
-    // Set the deployment id of your customized model
-    // Replace with your own CRIS deployment id.
-    recognizer->SetDeploymentId(L"YourDeploymentId");
-    wcout << L"Say something...\n";
+    cout << "Say something...\n";
 
-    // Performs recognition.
-    // RecognizeAsync() returns when the first utterance has been recognized, so it is suitable 
-    // only for single shot recognition like command or query. For long-running recognition, use
-    // StartContinuousRecognitionAsync() instead.
-    auto result = recognizer->RecognizeAsync().get();
+    // Performs recognition. RecognizeOnceAsync() returns when the first utterance has been recognized,
+    // so it is suitable only for single shot recognition like command or query. For long-running
+    // recognition, use StartContinuousRecognitionAsync() instead.
+    auto result = recognizer->RecognizeOnceAsync().get();
 
     // Checks result.
-    if (result->Reason != Reason::Recognized)
+    if (result->Reason == ResultReason::RecognizedSpeech)
     {
-        wcout << L"Recognition Status:" << int(result->Reason);
-        if (result->Reason == Reason::Canceled)
+        cout << "RECOGNIZED: Text=" << result->Text << std::endl;
+    }
+    else if (result->Reason == ResultReason::NoMatch)
+    {
+        cout << "NOMATCH: Speech could not be recognized." << std::endl;
+    }
+    else if (result->Reason == ResultReason::Canceled)
+    {
+        auto cancellation = CancellationDetails::FromResult(result);
+        cout << "CANCELED: Reason=" << (int)cancellation->Reason << std::endl;
+
+        if (cancellation->Reason == CancellationReason::Error)
         {
-            wcout << L"There was an error, reason: " << result->ErrorDetails << std::endl;
+            cout << "CANCELED: ErrorCode=" << (int)cancellation->ErrorCode << std::endl;
+            cout << "CANCELED: ErrorDetails=" << cancellation->ErrorDetails << std::endl;
+            cout << "CANCELED: Did you update the subscription info?" << std::endl;
         }
     }
-    else
-    {
-        wcout << L"We recognized: " << result->Text << std::endl;
-    }
     // </SpeechRecognitionUsingCustomizedModel>
+}
+
+void SpeechContinuousRecognitionWithPullStream()
+{
+    // First, define your own pull audio input stream callback class that implements the
+    // PullAudioInputStreamCallback interface. The sample here illustrates how to define such
+    // a callback that reads audio data from a wav file.
+    // AudioInputFromFileCallback implements PullAudioInputStreamCallback interface, and uses a wav file as source
+    class AudioInputFromFileCallback final : public PullAudioInputStreamCallback
+    {
+    public:
+        // Constructor that creates an input stream from a file.
+        AudioInputFromFileCallback(const string& audioFileName)
+            :m_reader(audioFileName)
+        {
+        }
+
+        // Implements AudioInputStream::Read() which is called to get data from the audio stream.
+        // It copies data available in the stream to 'dataBuffer', but no more than 'size' bytes.
+        // If the data available is less than 'size' bytes, it is allowed to just return the amount of data that is currently available.
+        // If there is no data, this function must wait until data is available.
+        // It returns the number of bytes that have been copied in 'dataBuffer'.
+        // It returns 0 to indicate that the stream reaches end or is closed.
+        int Read(uint8_t* dataBuffer, uint32_t size) override
+        {
+            return m_reader.Read(dataBuffer, size);
+        }
+        // Implements AudioInputStream::Close() which is called when the stream needs to be closed.
+        void Close() override
+        {
+            m_reader.Close();
+        }
+
+    private:
+        WavFileReader m_reader;
+    };
+
+    // Creates an instance of a speech config with specified subscription key and service region.
+    // Replace with your own subscription key and service region (e.g., "westus").
+    auto config = SpeechConfig::FromSubscription("YourSubscriptionKey", "YourServiceRegion");
+
+    // Creates a callback that will read audio data from a WAV file.
+    // Currently, the only supported WAV format is mono(single channel), 16 kHZ sample rate, 16 bits per sample.
+    // Replace with your own audio file name.
+    auto callback = make_shared<AudioInputFromFileCallback>("whatstheweatherlike.wav");
+    auto pullStream = AudioInputStream::CreatePullStream(callback);
+
+    // Creates a speech recognizer from stream input;
+    auto audioInput = AudioConfig::FromStreamInput(pullStream);
+    auto recognizer = SpeechRecognizer::FromConfig(config, audioInput);
+
+    // promise for synchronization of recognition end.
+    promise<void> recognitionEnd;
+
+    // Subscribes to events.
+    recognizer->Recognizing.Connect([](const SpeechRecognitionEventArgs& e)
+    {
+        cout << "Recognizing:" << e.Result->Text << std::endl;
+    });
+
+    recognizer->Recognized.Connect([] (const SpeechRecognitionEventArgs& e)
+    {
+        if (e.Result->Reason == ResultReason::RecognizedSpeech)
+        {
+            cout << "RECOGNIZED: Text=" << e.Result->Text << std::endl
+                 << "  Offset=" << e.Result->Offset() << std::endl
+                 << "  Duration=" << e.Result->Duration() << std::endl;
+        }
+        else if (e.Result->Reason == ResultReason::NoMatch)
+        {
+            cout << "NOMATCH: Speech could not be recognized." << std::endl;
+        }
+    });
+
+    recognizer->Canceled.Connect([&recognitionEnd](const SpeechRecognitionCanceledEventArgs& e)
+    {
+        switch (e.Reason)
+        {
+        case CancellationReason::EndOfStream:
+            cout << "CANCELED: Reach the end of the file." << std::endl;
+            break;
+            
+        case CancellationReason::Error:
+            cout << "CANCELED: ErrorCode=" << (int)e.ErrorCode << std::endl;
+            cout << "CANCELED: ErrorDetails=" << e.ErrorDetails << std::endl;
+            recognitionEnd.set_value();
+            break;
+            
+        default:
+            cout << "unknown reason ?!" << std::endl;
+        }
+    });
+
+    recognizer->SessionStopped.Connect([&recognitionEnd](const SessionEventArgs& e)
+    {
+        cout << "Session stopped.";
+        recognitionEnd.set_value(); // Notify to stop recognition.
+    });
+
+    // Starts continuous recognition. Uses StopContinuousRecognitionAsync() to stop recognition.
+    recognizer->StartContinuousRecognitionAsync().wait();
+
+    // Waits for recognition end.
+    recognitionEnd.get_future().wait();
+
+    // Stops recognition.
+    recognizer->StopContinuousRecognitionAsync().wait();
+}
+
+void SpeechContinuousRecognitionWithPushStream()
+{
+    // Creates an instance of a speech config with specified subscription key and service region.
+    // Replace with your own subscription key and service region (e.g., "westus").
+    auto config = SpeechConfig::FromSubscription("YourSubscriptionKey", "YourServiceRegion");
+
+    // Creates a push stream
+    auto pushStream = AudioInputStream::CreatePushStream();
+
+    // Creates a speech recognizer from stream input;
+    auto audioInput = AudioConfig::FromStreamInput(pushStream);
+    auto recognizer = SpeechRecognizer::FromConfig(config, audioInput);
+
+    // promise for synchronization of recognition end.
+    promise<void> recognitionEnd;
+
+    // Subscribes to events.
+    recognizer->Recognizing.Connect([](const SpeechRecognitionEventArgs& e)
+    {
+        cout << "Recognizing:" << e.Result->Text << std::endl;
+    });
+
+    recognizer->Recognized.Connect([](const SpeechRecognitionEventArgs& e)
+    {
+        if (e.Result->Reason == ResultReason::RecognizedSpeech)
+        {
+            cout << "RECOGNIZED: Text=" << e.Result->Text << std::endl
+                << "  Offset=" << e.Result->Offset() << std::endl
+                << "  Duration=" << e.Result->Duration() << std::endl;
+        }
+        else if (e.Result->Reason == ResultReason::NoMatch)
+        {
+            cout << "NOMATCH: Speech could not be recognized." << std::endl;
+        }
+    });
+
+    recognizer->Canceled.Connect([&recognitionEnd](const SpeechRecognitionCanceledEventArgs& e)
+    {
+        switch (e.Reason)
+        {
+        case CancellationReason::EndOfStream:
+            cout << "CANCELED: Reach the end of the file." << std::endl;
+            break;
+            
+        case CancellationReason::Error:
+            cout << "CANCELED: ErrorCode=" << (int)e.ErrorCode << std::endl;
+            cout << "CANCELED: ErrorDetails=" << e.ErrorDetails << std::endl;
+            recognitionEnd.set_value();
+            break;
+            
+        default:
+            cout << "CANCELED: received unknown reason." << std::endl;
+        }
+
+    });
+
+    recognizer->SessionStopped.Connect([&recognitionEnd](const SessionEventArgs& e)
+    {
+        cout << "Session stopped.";
+        recognitionEnd.set_value(); // Notify to stop recognition.
+    });
+
+    WavFileReader reader("whatstheweatherlike.wav");
+
+    vector<uint8_t> buffer(1000);
+    
+    // Starts continuous recognition. Uses StopContinuousRecognitionAsync() to stop recognition.
+    recognizer->StartContinuousRecognitionAsync().wait();
+    
+    // Read data and push them into the stream
+    int readSamples = 0;
+    while((readSamples = reader.Read(buffer.data(), (uint32_t)buffer.size())) != 0)
+    {
+        // Push a buffer into the stream
+        pushStream->Write(buffer.data(), readSamples);
+    }
+
+    // Close the push stream.
+    pushStream->Close();
+
+    // Waits for recognition end.
+    recognitionEnd.get_future().wait();
+
+    // Stops recognition.
+    recognizer->StopContinuousRecognitionAsync().wait();
 }

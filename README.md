@@ -1,13 +1,19 @@
 # Sample Repository for the Microsoft Cognitive Services Speech SDK
 
-This project hosts the **samples** for the Microsoft Cognitive Services Speech SDK (Preview). To find out more about the Microsoft Cognitive Services Speech SDK itself, please visit the [SDK documentation site](https://aka.ms/csspeech).
+This project hosts the **samples** for the Microsoft Cognitive Services Speech SDK. To find out more about the Microsoft Cognitive Services Speech SDK itself, please visit the [SDK documentation site](https://aka.ms/csspeech).
+
+## News
+
+* Speech SDK Release 1.1.0
+
+  Beginning of November we released version 1.1.0 of the Speech SDK. The release notes can be found [here](https://docs.microsoft.com/azure/cognitive-services/speech-service/releasenotes#speech-service-sdk-110).
 
 ## Features
 
 This repository hosts samples that help you to get started with several features of the SDK.
 In addition more complex scenarios are included to give you a head-start on using speech technology in your application.
 
-We tested the samples with the latest released version of the SDK (0.6.0) on Windows 10, Ubuntu 16.04 x64, and ARM-based Android devices (API 23: Android 6.0 Marshmallow or higher).
+We tested the samples with the latest released version of the SDK (1.1.0) on Windows 10, Ubuntu 16.04 x64, Android devices (API 23: Android 6.0 Marshmallow or higher), and iOS 11.4 devices.
 
 ## Getting Started
 
@@ -25,7 +31,7 @@ The [SDK documentation](https://aka.ms/csspeech) has extensive sections about ge
 ## Build and run the samples
 
 > **Note: the samples make use of the Microsoft Cognitive Services Speech SDK.
-> By downloading the Microsoft Cognitive Services Speech SDK, you acknowledge its license, see [Speech SDK license agreement](https://aka.ms/csspeech/license).**
+> By downloading the Microsoft Cognitive Services Speech SDK, you acknowledge its license, see [Speech SDK license agreement](https://aka.ms/csspeech/license201809).**
 
 Please see the description of each individual sample for instructions on how to build and run it.
 
@@ -42,6 +48,8 @@ If you want to build them from scratch, please follow the articles in the Quicks
 | [Quickstart C# .NET Core (Windows or Linux)](./quickstart/csharp-dotnetcore/)                               | Windows, Linux  | Demonstrates one-shot speech recognition from microphone      |
 | [Quickstart for Android](./quickstart/java-android/)                                                        | Android  | Demonstrates one-shot speech recognition from microphone             |
 | [Quickstart Java JRE](./quickstart/java-jre/)                                                               | Windows, Linux | Demonstrates one-shot speech recognition from microphone       |
+| [Quickstart JavaScript](./quickstart/js-browser/)                                                           | Web | Demonstrates one-shot speech recognition from microphone                  |
+| [Quickstart Objective-C](./quickstart/objectivec-ios/)                                                      | iOS | Demonstrates one-shot speech recognition from a file with recorded speech |
 
 The following samples demonstrate additional capabilities of the Speech SDK, such additional modes of speech recognition as well as intent recognition and translation:
 
@@ -55,6 +63,7 @@ The following samples demonstrate additional capabilities of the Speech SDK, suc
 | [Translation WPF sample for .NET Framework on Windows](./samples/csharp/dotnet-windows/translation-wpf)     | Windows  | Demonstrates translation |
 | [Speech-to-text UWP sample](./samples/csharp/uwp/speechtotext-uwp)                                          | Windows  | Demonstrates speech recognition |
 | [Speech recognition sample for Android](./samples/java/android/sdkdemo)                                     | Android  | Demonstrates speech and intent recognition |
+| [Speech recognition and translation sample for the browser, using JavaScript](./samples/js/browser)         | Web  | Demonstrates speech recognition, intent recognition, and translation |
 
 ## Resources
 

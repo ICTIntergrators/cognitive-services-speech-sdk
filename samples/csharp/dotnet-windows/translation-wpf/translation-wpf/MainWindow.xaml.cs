@@ -6,6 +6,7 @@
 namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
 {
     using System;
+    using System.Globalization;
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Diagnostics;
@@ -33,7 +34,7 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         public event PropertyChangedEventHandler PropertyChanged;
 
         /// <summary>
-        /// Helper function for INotifyPropertyChanged interface 
+        /// Helper function for INotifyPropertyChanged interface
         /// </summary>
         /// <typeparam name="T">Property type</typeparam>
         /// <param name="caller">Property name</param>
@@ -74,10 +75,10 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         /// <param name="e">An System.EventArgs that contains the event data.</param>
         protected override void OnClosed(EventArgs e)
         {
-            if (this.factory != null)
+            if (this.config != null)
             {
                 this.recognizer.Dispose();
-                this.factory = null;
+                this.config = null;
             }
 
             base.OnClosed(e);
@@ -109,7 +110,7 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         /// <param name="args">The arguments.</param>
         private void WriteLine(TextBox log, string format, params object[] args)
         {
-            var formattedStr = string.Format(format, args);
+            var formattedStr = string.Format(CultureInfo.InvariantCulture, format, args);
             Trace.WriteLine(formattedStr);
             Dispatcher.Invoke(() =>
             {
@@ -181,22 +182,22 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         private void InitializeVoiceMap()
         {
             voiceMap = new Dictionary<string, string>();
-            voiceMap.Add("en-US", "en-US-JessaRUS");
-            voiceMap.Add("ar-EG", "ar-EG-Hoda");
-            voiceMap.Add("zh-CN", "zh-CN-Yaoyao");
-            voiceMap.Add("fr-FR", "fr-FR-Julie");
-            voiceMap.Add("de-DE", "de-DE-Hedda");
-            voiceMap.Add("it-IT", "it-IT-Cosimo");
-            voiceMap.Add("ja-JP", "ja-JP-Ayumi");
-            voiceMap.Add("pt-BR", "pt-BR-Daniel");
-            voiceMap.Add("ru-RU", "ru-RU-Irina");
-            voiceMap.Add("es-ES", "es-ES-Laura");
+            voiceMap.Add("en-US", "Microsoft Server Speech Text to Speech Voice (en-US, JessaRUS)");
+            voiceMap.Add("ar-EG", "Microsoft Server Speech Text to Speech Voice (ar-EG, Hoda)");
+            voiceMap.Add("zh-CN", "Microsoft Server Speech Text to Speech Voice (zh-CN, Yaoyao, Apollo)");
+            voiceMap.Add("fr-FR", "Microsoft Server Speech Text to Speech Voice (fr-FR, Julie, Apollo)");
+            voiceMap.Add("de-DE", "Microsoft Server Speech Text to Speech Voice (de-DE, Hedda)");
+            voiceMap.Add("it-IT", "Microsoft Server Speech Text to Speech Voice (it-IT, Cosimo, Apollo)");
+            voiceMap.Add("ja-JP", "Microsoft Server Speech Text to Speech Voice (ja-JP, Ayumi, Apollo)");
+            voiceMap.Add("pt-BR", "Microsoft Server Speech Text to Speech Voice (pt-BR, Daniel, Apollo)");
+            voiceMap.Add("ru-RU", "Microsoft Server Speech Text to Speech Voice (ru-RU, Irina, Apollo)");
+            voiceMap.Add("es-ES", "Microsoft Server Speech Text to Speech Voice (es-ES, Laura, Apollo)");
         }
-    
+
         #endregion
 
         private TranslationRecognizer recognizer;
-        private SpeechFactory factory;
+        private SpeechTranslationConfig config;
         private string subscriptionKey;
         private const string SubscriptionKeyFileName = "SubscriptionKey.txt";
         private bool started;
@@ -255,7 +256,7 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         {
 
             this.settingsPanel.IsEnabled = false;
-            if (String.IsNullOrEmpty(this.SubscriptionKey))
+            if (string.IsNullOrEmpty(this.SubscriptionKey))
             {
                 this.SubscriptionKey = this.GetSubscriptionKeyFromFile(SubscriptionKeyFileName);
             }
@@ -306,20 +307,24 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         }
 
         /// <summary>
-        /// Initializes the factory object with subscription key and region
+        /// Initializes the config object with subscription key and region
         /// Initializes the recognizer object with a TranslationRecognizer
         /// Subscribes the recognizer to recognition Event Handlers
         /// If recognition is running, starts a thread which stops the recognition
         /// </summary>
         private void CreateRecognizer()
         {
-            this.factory = SpeechFactory.FromSubscription(SubscriptionKey, Region);
-            this.recognizer = this.factory.CreateTranslationRecognizer(FromLanguage, ToLanguages, voice);
+            this.config = SpeechTranslationConfig.FromSubscription(SubscriptionKey, Region);
+            this.config.SpeechRecognitionLanguage = FromLanguage;
+            this.config.VoiceName = voice;
+            ToLanguages.ForEach(l => this.config.AddTargetLanguage(l));
 
-            this.recognizer.IntermediateResultReceived += this.OnPartialResponseReceivedHandler;
-            this.recognizer.FinalResultReceived += this.OnFinalResponse;
-            this.recognizer.SynthesisResultReceived += this.OnSynthesis;
-            this.recognizer.RecognitionErrorRaised += this.OnError;
+            this.recognizer = new TranslationRecognizer(this.config);
+
+            this.recognizer.Recognizing += this.OnRecognizingEventHandler;
+            this.recognizer.Recognized += this.OnRecognizedEventHandler;
+            this.recognizer.Synthesizing += this.OnSynthesizingEventHandler;
+            this.recognizer.Canceled += this.OnCanceledEventHandler;
         }
 
         #region Recognition Event Handlers
@@ -328,8 +333,8 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         /// Called when a partial response is received.
         /// </summary>
         /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="TranslationTextResultEventArgs"/> instance containing the event data.</param>
-        private void OnPartialResponseReceivedHandler(object sender, TranslationTextResultEventArgs e)
+        /// <param name="e">The <see cref="TranslationRecognitionEventArgs"/> instance containing the event data.</param>
+        private void OnRecognizingEventHandler(object sender, TranslationRecognitionEventArgs e)
         {
             string text = e.Result.Text;
             foreach (var t in e.Result.Translations)
@@ -344,12 +349,12 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         /// Called on final response.
         /// </summary>
         /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="TranslationTextResultEventArgs"/> instance containing the event data.</param>
-        private void OnFinalResponse(object sender, TranslationTextResultEventArgs e)
+        /// <param name="e">The <see cref="TranslationRecognitionEventArgs"/> instance containing the event data.</param>
+        private void OnRecognizedEventHandler(object sender, TranslationRecognitionEventArgs e)
         {
             if (e.Result.Text.Length == 0)
             {
-                this.WriteLine(this.crisLogText, "Status: " + e.Result.RecognitionStatus);
+                this.WriteLine(this.crisLogText, "Reason: " + e.Result.Reason);
                 this.WriteLine(this.crisLogText, "No phrase response is available.");
             }
             else
@@ -367,13 +372,13 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         }
 
         /// <summary>
-        /// Called when error occurs.
+        /// Called when translation is canceled.
         /// </summary>
         /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="RecognitionErrorEventArgs"/> instance containing the event data.</param>
-        private void OnError(object sender, RecognitionErrorEventArgs e)
+        /// <param name="e">The <see cref="TranslationRecognitionCanceledEventArgs"/> instance containing the event data.</param>
+        private void OnCanceledEventHandler(object sender, TranslationRecognitionCanceledEventArgs e)
         {
-            string text = $"Speech recognition: error occurred. Status: {e.Status}, FailureReason: {e.FailureReason}";
+            string text = $"Speech recognition: canceled. Reason: {e.Reason}, ErrorDetails: {e.ErrorDetails}";
             this.SetCurrentText(this.crisCurrentText, text);
             text += "\n";
             this.WriteLine(this.crisLogText, text);
@@ -389,11 +394,12 @@ namespace MicrosoftSpeechSDKSamples.WpfTranslationSample
         /// </summary>
         /// <param name="sender">The sender.</param>
         /// <param name="e">The <see cref="TranslationSynthesisEventArgs"/> instance containing the event data.</param>
-        private void OnSynthesis(object sender, TranslationSynthesisResultEventArgs e)
+        private void OnSynthesizingEventHandler(object sender, TranslationSynthesisEventArgs e)
         {
-            if (e.Result.Status == SynthesisStatus.Success)
+            var audio = e.Result.GetAudio();
+            if (audio.Length > 0)
             {
-                using (var m = new MemoryStream(e.Result.Audio))
+                using (var m = new MemoryStream(audio))
                 {
                     SoundPlayer simpleSound = new SoundPlayer(m);
                     simpleSound.Play();

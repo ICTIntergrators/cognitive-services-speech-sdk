@@ -1,41 +1,32 @@
 package com.microsoft.cognitiveservices.speech.samples.console;
 
-import com.microsoft.cognitiveservices.speech.AudioInputStream;
-import com.microsoft.cognitiveservices.speech.AudioInputStreamFormat;
+import com.microsoft.cognitiveservices.speech.audio.PullAudioInputStreamCallback;
 
 import java.io.IOException;
 import java.io.InputStream;
 
-public class WavStream extends AudioInputStream {
-    private final AudioInputStreamFormat format;
+public class WavStream extends PullAudioInputStreamCallback {
     private final InputStream stream;
 
     public WavStream(InputStream wavStream) {
         try {
-            this.format = new AudioInputStreamFormat();
             this.stream = parseWavHeader(wavStream);
         } catch (Exception ex) {
             throw new IllegalArgumentException(ex.getMessage());
         }
     }
 
-    // region AudioInputStream overrides
     @Override
-    public AudioInputStreamFormat getFormat() {
-        return this.format;
-    }
-
-    @Override
-    public long read(byte[] bytes) {
+    public int read(byte[] dataBuffer) {
         long ret = 0;
 
         try {
-            ret = this.stream.read(bytes, 0, bytes.length);
+            ret = this.stream.read(dataBuffer, 0, dataBuffer.length);
         } catch (Exception ex) {
             System.out.println("Read " + ex);
         }
 
-        return Math.max(0, ret);
+        return (int)Math.max(0, ret);
     }
 
     @Override
@@ -77,8 +68,8 @@ public class WavStream extends AudioInputStream {
         // Note: assumption about order of chunks
         // Tag "RIFF"
         byte data[] = new byte[4];
-        reader.read(data, 0, 4);
-        ThrowIfFalse((data[0] == 'R') && (data[1] == 'I') && (data[2] == 'F') && (data[3] == 'F'), "RIFF");
+        int numRead = reader.read(data, 0, 4);
+        ThrowIfFalse((numRead == 4) && (data[0] == 'R') && (data[1] == 'I') && (data[2] == 'F') && (data[3] == 'F'), "RIFF");
 
         // Chunk size
         /* int fileLength = */ReadInt32(reader);
@@ -86,35 +77,39 @@ public class WavStream extends AudioInputStream {
         // Subchunk, Wave Header
         // Subchunk, Format
         // Tag: "WAVE"
-        reader.read(data, 0, 4);
-        ThrowIfFalse((data[0] == 'W') && (data[1] == 'A') && (data[2] == 'V') && (data[3] == 'E'), "WAVE");
+        numRead = reader.read(data, 0, 4);
+        ThrowIfFalse((numRead == 4) && (data[0] == 'W') && (data[1] == 'A') && (data[2] == 'V') && (data[3] == 'E'), "WAVE");
 
         // Tag: "fmt"
-        reader.read(data, 0, 4);
-        ThrowIfFalse((data[0] == 'f') && (data[1] == 'm') && (data[2] == 't') && (data[3] == ' '), "fmt ");
+        numRead = reader.read(data, 0, 4);
+        ThrowIfFalse((numRead == 4) && (data[0] == 'f') && (data[1] == 'm') && (data[2] == 't') && (data[3] == ' '), "fmt ");
 
         // chunk format size
         long formatSize = ReadInt32(reader);
         ThrowIfFalse(formatSize >= 16, "formatSize");
 
-        format.FormatTag = ReadUInt16(reader);
-        format.Channels = ReadUInt16(reader);
-        format.SamplesPerSec = (int) ReadUInt32(reader);
-        format.AvgBytesPerSec = (int) ReadUInt32(reader);
-        format.BlockAlign = ReadUInt16(reader);
-        format.BitsPerSample = ReadUInt16(reader);
-        ThrowIfFalse(format.FormatTag == 1, "PCM"); // PCM
+        int formatTag = ReadUInt16(reader);
+        int channels = ReadUInt16(reader);
+        int samplesPerSec = (int) ReadUInt32(reader);
+        int avgBytesPerSec = (int) ReadUInt32(reader);
+        int blockAlign = ReadUInt16(reader);
+        int bitsPerSample = ReadUInt16(reader);
+        ThrowIfFalse(formatTag == 1, "PCM"); // PCM
+        ThrowIfFalse(channels == 1, "single channel");
+        ThrowIfFalse(samplesPerSec == 16000, "samples per second");
+        ThrowIfFalse(bitsPerSample == 16, "bits per sample");
 
         // Until now we have read 16 bytes in format, the rest is cbSize and is ignored
         // for now.
         if (formatSize > 16) {
-            reader.read(new byte[(int) (formatSize - 16)]);
+            numRead = reader.read(new byte[(int) (formatSize - 16)]);
+            ThrowIfFalse(numRead == (int)(formatSize - 16), "could not skip extended format");
         }
 
         // Second Chunk, data
         // tag: data.
-        reader.read(data, 0, 4);
-        ThrowIfFalse((data[0] == 'd') && (data[1] == 'a') && (data[2] == 't') && (data[3] == 'a'), "data");
+        numRead = reader.read(data, 0, 4);
+        ThrowIfFalse((numRead == 4) && (data[0] == 'd') && (data[1] == 'a') && (data[2] == 't') && (data[3] == 'a'), "data");
 
         // data chunk size
         // Note: assumption is that only a single data chunk
